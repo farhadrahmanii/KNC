@@ -51,7 +51,7 @@ class MarketsResource extends Resource
                 Card::make()->schema([
                     Forms\Components\Select::make('nomerah_number')
                         ->label('د ځمکی نمبر')
-                        ->relationship('numerNumer', 'numero_number')
+                        ->relationship('numerNumer', 'numera_id')
                         ->searchable()
                         ->selectablePlaceholder()
                         ->required(),

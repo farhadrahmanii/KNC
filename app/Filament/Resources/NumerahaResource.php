@@ -117,7 +117,7 @@ class NumerahaResource extends Resource
                             ->placeholder('د نمری (ځمکی) جنوب طرف')
                             ->maxLength(191),
                         Forms\Components\TextInput::make('east')
-                            ->label('شمال')
+                            ->label('شرق')
                             ->required()
                             ->placeholder('د نمری (ځمکی) شرق طرف')
                             ->maxLength(191),

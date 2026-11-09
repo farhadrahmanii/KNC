@@ -7,7 +7,6 @@ use App\Models\Numeraha;
 use LaravelDaily\Invoices\Invoice;
 use LaravelDaily\Invoices\Classes\Buyer;
 use LaravelDaily\Invoices\Classes\InvoiceItem;
-use App\Models\FilamentModel; // Use your actual model
 use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Elibyy\TCPDF\Facades\TCPDF;
@@ -16,15 +15,13 @@ use FontLib\Table\Type\name;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\IOFactory;
 use Carbon\Carbon;
-use Dompdf\Dompdf;
-use Dompdf\Options;
 use PhpOffice\PhpWord\TemplateProcessor;
 
 class SharwaliTarifa extends Controller
 {
     public function downloadInvoice($id)
     {
-        $filament = CustomerNumeraha::with(['customer', 'numeraha'])->find($id);
+        $filament = $this->saleForDownload($id);
 
         // Handle potential null values in the item details
         $numeraha_id = $filament->numeraha_id ?? 'Unnamed Item';
@@ -116,7 +113,7 @@ class SharwaliTarifa extends Controller
     }
     public function downloadsoldDocs($id)
     {
-        $filament = CustomerNumeraha::with(['customer', 'numeraha'])->find($id);
+        $filament = $this->saleForDownload($id);
 
         // Handle potential null values in the item details
         $numeraha_id = $filament->numeraha_id ?? 'Unnamed Item';
@@ -153,8 +150,6 @@ class SharwaliTarifa extends Controller
         $sharwali_tarifa_price = $filament->numeraha->sharwali_tarifa_price ?? '0 AFG';
         $date = Carbon::now();
 
-        // Initialize TCPDF
-        $pdf = new Dompdf();
         $pdf = new TCPDF();
 
         // Set document information
@@ -215,7 +210,7 @@ class SharwaliTarifa extends Controller
     public function downloadsoldWord($id)
     {
         // Load the data from the database
-        $filament = CustomerNumeraha::with(['customer', 'numeraha'])->find($id);
+        $filament = $this->saleForDownload($id);
 
         // Handle potential null values
         $numeraha_id = $filament->numeraha_id ?? 'Unnamed Item';
@@ -303,5 +298,16 @@ class SharwaliTarifa extends Controller
 
         // Return the file as a download response
         return response()->download($tempFile)->deleteFileAfterSend(true);
+    }
+
+    private function saleForDownload($id): CustomerNumeraha
+    {
+        $sale = CustomerNumeraha::with(['customer', 'numeraha'])->find($id);
+
+        if ($sale === null || $sale->customer === null || $sale->numeraha === null) {
+            abort(404);
+        }
+
+        return $sale;
     }
 }

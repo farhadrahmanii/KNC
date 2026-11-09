@@ -34,7 +34,7 @@ class User extends Authenticatable implements HasAvatar
     protected $hidden = [
         'password',
         'remember_token',
-        'custom_fields' => 'array',
+        'custom_fields',
     ];
 
     /**
@@ -47,6 +47,7 @@ class User extends Authenticatable implements HasAvatar
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'custom_fields' => 'array',
         ];
     }
 

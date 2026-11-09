@@ -27,31 +27,27 @@ class NumerahasRelationManager extends RelationManager
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('numero_number')
+                Forms\Components\TextInput::make('numera_id')
+                    ->label('د نمری آی ډی')
                     ->required()
-                    ->maxLength(255),
+                    ->maxLength(191),
             ]);
     }
 
     public function table(Table $table): Table
     {
         return $table
-            ->recordTitleAttribute('numero_number')
+            ->recordTitleAttribute('numera_id')
             ->columns([
-                Tables\Columns\TextColumn::make('Customers.name')
-                    ->numeric()
+                Tables\Columns\TextColumn::make('numera_id')
                     ->sortable()
-                    ->label('مشتری')
-                    ->toggleable(),
-                Tables\Columns\TextColumn::make('numero_number')
-                    ->sortable()
-                    ->label('د نمری نمبر')
+                    ->label('د نمری آی ډی')
                     ->searchable()
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('save_number')
+                Tables\Columns\TextColumn::make('numera_type')
                     ->sortable()
+                    ->label('تفصیل')
                     ->searchable()
-                    ->label('د ثبت نمبر')
                     ->toggleable(),
                 Tables\Columns\TextColumn::make('date')
                     ->sortable()
@@ -59,11 +55,6 @@ class NumerahasRelationManager extends RelationManager
                     ->label('نیټه')
                     ->searchable()
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('numera_price')
-                    ->sortable()
-                    ->label('د نمری (ځمکی) قیمت')
-                    ->toggleable()
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('sharwali_tarifa_price')
                     ->sortable()
                     ->label('د ښاروالی د تعرفی پیسی')
@@ -108,8 +99,8 @@ class NumerahasRelationManager extends RelationManager
                         $max = $data['max_due_price'] ?? null;
 
                         // Filter logic
-                        return $query->when($min !== null, fn($query) => $query->whereRaw('total_price - payed_price >= ?', [$min]))
-                            ->when($max !== null, fn($query) => $query->whereRaw('total_price - payed_price <= ?', [$max]));
+                        return $query->when($min !== null, fn($query) => $this->whereAmountDue($query, '>=', $min))
+                            ->when($max !== null, fn($query) => $this->whereAmountDue($query, '<=', $max));
                     })
                     ->indicateUsing(function (array $data): array {
                         // Display current filter range
@@ -126,7 +117,7 @@ class NumerahasRelationManager extends RelationManager
                         return $indicators;
                     }),
                 Filter::make('ټول قرزداران')
-                    ->query(fn(Builder $query) => $query->whereColumn('total_price', '>', 'payed_price')),
+                    ->query(fn(Builder $query) => $this->whereAmountDue($query, '>', 0)),
             ])
             ->headerActions([
                 // Tables\Actions\CreateAction::make(),
@@ -140,5 +131,22 @@ class NumerahasRelationManager extends RelationManager
                     // Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    private function whereAmountDue(Builder $query, string $operator, $amount): Builder
+    {
+        $operator = in_array($operator, ['>=', '<=', '>'], true) ? $operator : '>=';
+        $customerId = $this->getOwnerRecord()->getKey();
+
+        return $query->whereExists(function ($sub) use ($operator, $amount, $customerId) {
+            $sub->selectRaw('1')
+                ->from('customer_numerahas')
+                ->whereColumn('customer_numerahas.numeraha_id', 'numerahas.id')
+                ->where('customer_numerahas.customer_id', $customerId)
+                ->whereRaw(
+                    "CAST(customer_numerahas.total_price AS DECIMAL(15,2)) - CAST(customer_numerahas.payed_price AS DECIMAL(15,2)) {$operator} ?",
+                    [$amount]
+                );
+        });
     }
 }

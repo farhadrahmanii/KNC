@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Transactions extends Model
 {
@@ -15,16 +14,17 @@ class Transactions extends Model
         'transaction_id',
         'notes',
         'user_id',
-        'numerah_id',
+        'numeraha_id',
         'customer_id',
     ];
 
-    public function numeraha(): HasMany
+    public function numeraha(): BelongsTo
     {
-        return $this->hasMany(numeraha::class);
+        return $this->belongsTo(Numeraha::class);
     }
+
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(customers::class);
+        return $this->belongsTo(Customers::class);
     }
 }

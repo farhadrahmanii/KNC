@@ -12,10 +12,7 @@ class NumerahObserver
      */
     public function created(Numeraha $numeraha): void
     {
-        Notification::make()
-            ->title('نمره(ځمکه) اضافه شوه')
-            ->sendToDatabase($numeraha->numero_number)
-        ;
+        $this->notifyStaff('نمره (ځمکه) اضافه شوه');
     }
 
     /**
@@ -23,11 +20,7 @@ class NumerahObserver
      */
     public function updated(Numeraha $numeraha): void
     {
-        //
-        Notification::make()
-            ->title('نمره(ځمکه) اضافه شوه')
-            ->sendToDatabase($numeraha->numero_number)
-        ;
+        $this->notifyStaff('نمره (ځمکه) تازه شوه');
     }
 
     /**
@@ -52,5 +45,18 @@ class NumerahObserver
     public function forceDeleted(Numeraha $numeraha): void
     {
         //
+    }
+
+    private function notifyStaff(string $title): void
+    {
+        $user = auth()->user();
+
+        if ($user === null) {
+            return;
+        }
+
+        Notification::make()
+            ->title($title)
+            ->sendToDatabase($user);
     }
 }
