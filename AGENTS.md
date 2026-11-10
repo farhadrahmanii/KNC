@@ -240,6 +240,9 @@ php artisan test
 
 # Same check CI runs before a deploy (needs npm run build first)
 php artisan mina:release-gate
+
+# Demo data: DEMO- plots, customers with mobile 07990000NN. Refuses production, skips if already seeded
+php artisan db:seed --class=SampleDataSeeder
 ```
 
 ---
