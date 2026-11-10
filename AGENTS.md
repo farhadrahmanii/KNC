@@ -208,8 +208,11 @@ In-app help lives in `docs/{ps,en,de}/` and shows on the `/kb` knowledge base pa
 - **CI deploys and migrates production.** `.github/workflows/laravel.yml` runs `php artisan migrate --force` against the production database on every push to `main`. A migration must be safe on live data before it is merged.
 - **Tests use the `.env` database.** The SQLite lines in `phpunit.xml` are commented out. Do not add `RefreshDatabase` to a test unless you point it at a throwaway database first.
 - `NumerahObserver` is not registered (no `#[ObservedBy]`, no `observe()` call). Its notifications do not fire until it is.
-- The markets file is `aMarketsResource.php` but the class is `MarketsResource`. Keep the class name if you rename the file.
-- The sold and unsold sidebar links in `AdminPanelProvider` are hand-built filter URLs using `env('APP_URL')`. `env()` returns null once config is cached, and the two links expect `APP_URL` to end with `/` while `my-profile` does not. Prefer `url(...)` or a route helper in new links.
+- The markets file is `aMarketsResource.php` but the class is `MarketsResource`. Keep the class name if you rename the file. Because the names differ, Composer skips it and Filament includes the file on every app boot, so a second feature test in one PHPUnit run dies with "Cannot redeclare class MarketsResource".
+- Column requirements must match the forms. A `NOT NULL` column the form leaves optional fails on insert with "doesn't have a default value".
+- Build sidebar links in `AdminPanelProvider` with `fn () => url(...)`, never `env('APP_URL')`. `env()` returns null once config is cached, and a stale `APP_URL` sends the link to a dead host.
+- `APP_URL` must match the Herd site (`http://fasalbabajimina.test`, named after the folder). Uploaded file URLs come from it (`config/filesystems.php`).
+- `public/storage` must be a link to `storage/app/public`. If the project is copied or moved, run `php artisan storage:link` again.
 - `DatabaseSeeder` imports models in lowercase (`customers`, `numeraha`). That works on Windows but fails on a case-sensitive Linux file system.
 - The customers migration is dated `1024_…` so it runs before `numerahas`. Do not "fix" the date.
 - Knowledge base articles are cached forever under the `filament_kb_` prefix. Clear the cache after you edit one.

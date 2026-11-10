@@ -5,41 +5,30 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\NumerahaResource\Pages;
 use App\Filament\Resources\NumerahaResource\RelationManagers\CustomersRelationManager;
 use App\Models\Numeraha;
+use Awcodes\FilamentBadgeableColumn\Components\Badge;
+use Awcodes\FilamentBadgeableColumn\Components\BadgeableColumn;
 use Filament\Forms;
 use Filament\Forms\Components\Card;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
-use Filament\Tables\Actions\Action;
+use Filament\Tables\Columns\Summarizers\Sum;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Filament\Tables\Enums\FiltersLayout;
-use App\Http\Controllers\tarifaController;
-use Filament\Tables\Filters\Filter;
-use Filament\Forms\Components\TextInput;
-use Filament\Tables\Actions\Button;
-use App\Filament\Exports\ProductExporter;
-use Filament\Actions\Exports\Enums\ExportFormat;
-use Filament\Actions;
-use EightyNine\ExcelImport\ExcelImportAction;
-use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
-use pxlrbt\FilamentExcel\Actions\Tables\ExportAction;
-use pxlrbt\FilamentExcel\Exports\ExcelExport;
-use pxlrbt\FilamentExcel\Columns\Column;
 use Illuminate\Support\Str;
-use Filament\Notifications\Notification;
-use App\Models\CustomerNumeraha;
-use Awcodes\FilamentBadgeableColumn\Components\Badge;
-use Awcodes\FilamentBadgeableColumn\Components\BadgeableColumn;
-use Okeonline\FilamentArchivable\Tables\Filters\ArchivedFilter;
+use LaravelArchivable\Scopes\ArchivableScope;
 use Okeonline\FilamentArchivable\Tables\Actions\ArchiveAction;
 use Okeonline\FilamentArchivable\Tables\Actions\UnArchiveAction;
-use LaravelArchivable\Scopes\ArchivableScope;
-use Filament\Tables\Columns\Summarizers\Sum;
+use Okeonline\FilamentArchivable\Tables\Filters\ArchivedFilter;
+use pxlrbt\FilamentExcel\Actions\Tables\ExportAction;
+use pxlrbt\FilamentExcel\Columns\Column;
+use pxlrbt\FilamentExcel\Exports\ExcelExport;
 
 class NumerahaResource extends Resource
 {
@@ -47,13 +36,15 @@ class NumerahaResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-map';
 
-    protected static ?string $navigationLabel = "د نمرو مکمل لیست";
+    protected static ?string $navigationLabel = 'د نمرو مکمل لیست';
+
     protected static ?int $navigationSort = 1;
 
     public static function getNavigationBadge(): ?string
     {
         return static::getModel()::count();
     }
+
     public static ?string $label = 'نمری (ځمکی)';
 
     // custome code for saving data
@@ -67,6 +58,7 @@ class NumerahaResource extends Resource
             // Process each record, e.g., save to the database
         }
     }
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
@@ -75,6 +67,7 @@ class NumerahaResource extends Resource
                 ArchivableScope::class,
             ]);
     }
+
     public static function form(Form $form): Form
     {
         return $form
@@ -84,7 +77,7 @@ class NumerahaResource extends Resource
                         Forms\Components\TextInput::make('numera_id')
                             ->label('د نمری آی ډی')
                             ->unique(ignoreRecord: true)
-                            ->default('GM-' . Str::substr((string) Str::uuid(), 0, 8)) // Auto-generate a unique save number
+                            ->default('GM-'.Str::substr((string) Str::uuid(), 0, 8)) // Auto-generate a unique save number
                             ->disabled()
                             ->prefixIcon('heroicon-o-sparkles')
                             ->required(),
@@ -167,9 +160,9 @@ class NumerahaResource extends Resource
                     //     // ->maxFiles(5)
                     //     // ->required()
                     //     ->label('د ځمکی اسناد'),
-                ])->columnSpan(6)
+                ])->columnSpan(6),
             ])->columns(12);
-        ;
+
     }
 
     public static function table(Table $table): Table
@@ -236,16 +229,15 @@ class NumerahaResource extends Resource
                     ->searchable()
                     ->suffixBadges([
                         Badge::make('hot')
-                            ->label(fn($record) => ' مشتریان: ' . $record->customers()->count())
+                            ->label(fn ($record) => ' مشتریان: '.$record->customers()->count())
                             ->color('success')
-                            ->visible(fn($record) => $record->customers()->count() > 0),
+                            ->visible(fn ($record) => $record->customers()->count() > 0),
                     ]),
                 Tables\Columns\TextColumn::make('numera_type')
                     ->sortable()
                     ->label(' تفصیل')
                     ->searchable()
-                    ->toggleable()
-                ,
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('Land_Area')
                     ->sortable()
                     ->label('د نمری مساحت')
@@ -256,8 +248,7 @@ class NumerahaResource extends Resource
                     ->label('ملاحظات')
                     ->searchable()
                     ->toggleable()
-                    ->html()
-                ,
+                    ->html(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -280,15 +271,16 @@ class NumerahaResource extends Resource
                     //     ->label('به اساس مشتری')
                     //     ->relationship('customers', 'name'),
                     //  layout: FiltersLayout::AboveContent
-                    // TernaryFilter::make('پلورل شوی نمری (ځمکی)')
-                    //     ->label('د نمرو (ځمکو) فلتر')
-                    //     ->placeholder('د فلتر انتخاب')
-                    //     ->trueLabel('پلورل شوی نمری (ځمکی)')
-                    //     ->falseLabel(' هغه نمری (ځمکی) جی ندی پلورل شوی.')
-                    //     ->queries(
-                    //         true: fn(Builder $query) => $query->whereHas('customers'),
-                    //         false: fn(Builder $query) => $query->whereDoesntHave('customers')
-                    //     ),
+                    TernaryFilter::make('پلورل شوی نمری (ځمکی)')
+                        ->label('د نمرو (ځمکو) فلتر')
+                        ->placeholder('د فلتر انتخاب')
+                        ->trueLabel('پلورل شوی نمری (ځمکی)')
+                        ->falseLabel(' هغه نمری (ځمکی) جی ندی پلورل شوی.')
+                        ->queries(
+                            true: fn (Builder $query) => $query->whereHas('customers'),
+                            false: fn (Builder $query) => $query->whereDoesntHave('customers'),
+                            blank: fn (Builder $query) => $query,
+                        ),
                     // Filter::make('هغه نمری (ځمکی) چی نه دی پلورل شوی.')
                     //     ->query(fn(Builder $query) => $query->where(function ($query) {
                     //         $query->where('customer_id', '=', 0)
@@ -298,11 +290,9 @@ class NumerahaResource extends Resource
             )
             ->actions([
                 Tables\Actions\ViewAction::make()
-                    ->label('کتل')
-                ,
+                    ->label('کتل'),
                 Tables\Actions\EditAction::make()
-                    ->label('بدلون')
-                ,
+                    ->label('بدلون'),
                 // ExportAction::make()
                 //     ->label('ډنلوډ کول')
                 //     ->color('success')
@@ -337,9 +327,10 @@ class NumerahaResource extends Resource
     public static function getRelations(): array
     {
         return [
-            CustomersRelationManager::class
+            CustomersRelationManager::class,
         ];
     }
+
     public static function getPages(): array
     {
         return [
