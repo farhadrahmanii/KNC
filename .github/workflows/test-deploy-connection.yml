@@ -1,0 +1,149 @@
+name: Test Deploy Connection
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-ssh:
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Validate required secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in VPS_HOST VPS_USER VPS_SSH_PRIVATE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error title=Missing secret::${name} is not configured."
+              missing=1
+            else
+              echo "OK: ${name} is set"
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Wait for SSH port
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          set -euo pipefail
+          port="${VPS_PORT:-22}"
+          echo "Waiting for SSH at port ${port} (up to 5 attempts)..."
+          for i in 1 2 3 4 5; do
+            if timeout 15 bash -c "exec 3<>/dev/tcp/${VPS_HOST}/${port}" 2>/dev/null; then
+              echo "SSH port is open (attempt ${i})"
+              exit 0
+            fi
+            echo "Attempt ${i}/5: not reachable, sleeping 20s..."
+            sleep 20
+          done
+          echo "::error title=SSH unreachable::GitHub Actions cannot reach the VPS SSH port. Check the firewall, fail2ban, and that the VPS is up."
+          exit 1
+
+      - name: Test SSH connection
+        id: ssh_test
+        continue-on-error: true
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
+        env:
+          APP_DIR: ${{ vars.APP_DIR || '/var/www/fasalbabajimina' }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          timeout: 60s
+          command_timeout: 2m
+          envs: APP_DIR
+          script: |
+            set -euo pipefail
+            APP_DIR="${APP_DIR:-/var/www/fasalbabajimina}"
+            echo "SSH OK on $(hostname)"
+            echo "User: $(whoami)"
+            echo "App dir: ${APP_DIR}"
+            ls -la "${APP_DIR}" | head -5
+            if [ -f "${APP_DIR}/deploy.sh" ]; then
+              echo "deploy.sh: present"
+            else
+              echo "deploy.sh: MISSING (expected until the first Deploy to Production run on main)"
+            fi
+            if [ -f "${APP_DIR}/.env" ]; then
+              echo ".env: present"
+            else
+              echo ".env: MISSING"
+              exit 1
+            fi
+            if [ ! -d "${APP_DIR}/.git" ]; then
+              echo "ERROR: ${APP_DIR} is not a git repository."
+              exit 1
+            fi
+            cd "${APP_DIR}"
+            git remote -v
+            git branch --show-current || true
+            php -r 'echo "PHP ".PHP_VERSION, PHP_EOL;'
+            composer --version
+            node -v
+            npm -v
+
+      - name: Pause before SSH retry
+        if: steps.ssh_test.outcome == 'failure'
+        run: |
+          echo "First SSH test failed; waiting 15s before retry..."
+          sleep 15
+
+      - name: Test SSH connection (retry)
+        id: ssh_test_retry
+        if: steps.ssh_test.outcome == 'failure'
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
+        env:
+          APP_DIR: ${{ vars.APP_DIR || '/var/www/fasalbabajimina' }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          timeout: 60s
+          command_timeout: 2m
+          envs: APP_DIR
+          script: |
+            set -euo pipefail
+            APP_DIR="${APP_DIR:-/var/www/fasalbabajimina}"
+            echo "SSH OK on $(hostname)"
+            echo "User: $(whoami)"
+            echo "App dir: ${APP_DIR}"
+            ls -la "${APP_DIR}" | head -5
+            if [ -f "${APP_DIR}/deploy.sh" ]; then
+              echo "deploy.sh: present"
+            else
+              echo "deploy.sh: MISSING (expected until the first Deploy to Production run on main)"
+            fi
+            if [ -f "${APP_DIR}/.env" ]; then
+              echo ".env: present"
+            else
+              echo ".env: MISSING"
+              exit 1
+            fi
+            if [ ! -d "${APP_DIR}/.git" ]; then
+              echo "ERROR: ${APP_DIR} is not a git repository."
+              exit 1
+            fi
+            cd "${APP_DIR}"
+            git remote -v
+            git branch --show-current || true
+            php -r 'echo "PHP ".PHP_VERSION, PHP_EOL;'
+            composer --version
+            node -v
+            npm -v
+
+      - name: Fail if SSH test never succeeded
+        if: always() && steps.ssh_test.outcome == 'failure' && steps.ssh_test_retry.outcome != 'success'
+        run: |
+          echo "::error title=SSH test failed::Cannot connect to VPS after retry."
+          exit 1

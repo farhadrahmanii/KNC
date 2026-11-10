@@ -205,7 +205,7 @@ In-app help lives in `docs/{ps,en,de}/` and shows on the `/kb` knowledge base pa
 
 ## Gotchas
 
-- **CI deploys and migrates production.** `.github/workflows/laravel.yml` runs `php artisan migrate --force` against the production database on every push to `main`. A migration must be safe on live data before it is merged.
+- **A push to `main` deploys production.** `.github/workflows/deploy-production.yml` runs the release gate on that exact commit, then SSHes to the VPS and runs `deploy.sh`. The script snapshots MySQL and then runs `php artisan migrate --force` on the server. GitHub Actions does not open the production database. A migration must still be safe on live data before it is merged. The server clone is `/var/www/fasalbabajimina` unless the `APP_DIR` repository variable overrides it. The `production` environment needs secrets `VPS_HOST`, `VPS_USER`, and `VPS_SSH_PRIVATE_KEY` (`VPS_PORT` is optional). Pull requests run `.github/workflows/verify-release.yml` only.
 - **Tests use the `.env` database.** The SQLite lines in `phpunit.xml` are commented out. Do not add `RefreshDatabase` to a test unless you point it at a throwaway database first.
 - `NumerahObserver` is not registered (no `#[ObservedBy]`, no `observe()` call). Its notifications do not fire until it is.
 - The markets file is `aMarketsResource.php` but the class is `MarketsResource`. Keep the class name if you rename the file. Because the names differ, Composer skips it and Filament includes the file on every app boot, so a second feature test in one PHPUnit run dies with "Cannot redeclare class MarketsResource".
@@ -236,6 +236,9 @@ npm run build
 # Format and test
 vendor/bin/pint --dirty
 php artisan test
+
+# Same check CI runs before a deploy (needs npm run build first)
+php artisan mina:release-gate
 ```
 
 ---
@@ -278,5 +281,5 @@ Before any task:
 1. Read **AGENTS.md**, then the folder `AGENTS.md` for the area you touch.
 2. Confirm which domain the change belongs to: plots, customers, sales, finance, markets, employees, or users.
 3. Copy the nearest existing resource.
-4. Remember that a push to `main` migrates production.
+4. Remember that a push to `main` deploys that commit and migrates production on the VPS.
 5. Keep the admin Pashto, right to left, and consistent.

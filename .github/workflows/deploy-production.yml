@@ -1,0 +1,191 @@
+name: Deploy to Production (VPS)
+
+# ONE production path, ONE production branch.
+#
+# The commit is resolved to a SHA once, up front. The release gate verifies
+# that SHA and deploy.sh builds that SHA, so a commit landing mid-run cannot
+# slip onto production unverified.
+#
+# Required GitHub environment: production
+# Secrets: VPS_HOST, VPS_USER, VPS_SSH_PRIVATE_KEY, optional VPS_PORT
+# Variable (optional): APP_DIR, default /var/www/fasalbabajimina
+#
+# The server clone must already exist, with a production .env, and nginx
+# rooted at $APP_DIR/public. deploy.sh turns public/ into a symlink.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Git branch to deploy
+        required: true
+        default: main
+        type: choice
+        options:
+          - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  # Queue deploys instead of killing SSH mid release switch.
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.pin.outputs.sha }}
+      branch: ${{ steps.pin.outputs.branch }}
+
+    steps:
+      - name: Validate production branch
+        env:
+          WORKFLOW_REF: ${{ github.ref }}
+          TARGET_BRANCH: ${{ github.event.inputs.branch || github.ref_name }}
+        run: |
+          set -euo pipefail
+          test "$WORKFLOW_REF" = refs/heads/main
+          test "$TARGET_BRANCH" = main
+
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.sha }}
+          fetch-depth: 1
+
+      - name: Pin the exact commit to verify and deploy
+        id: pin
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_BRANCH: ${{ github.event.inputs.branch }}
+          PUSH_BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          if [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            branch="${INPUT_BRANCH}"
+          else
+            branch="${PUSH_BRANCH}"
+          fi
+          printf 'sha=%s\n' "${sha}" >> "$GITHUB_OUTPUT"
+          printf 'branch=%s\n' "${branch}" >> "$GITHUB_OUTPUT"
+          echo "::notice title=Deploy target::${branch} @ ${sha}"
+
+  verify:
+    name: Verify release
+    needs: resolve
+    uses: ./.github/workflows/verify-release.yml
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
+
+  deploy:
+    name: Deploy to VPS
+    needs: [resolve, verify]
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 45
+
+    steps:
+      - name: Validate deploy secrets
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in VPS_HOST VPS_USER VPS_SSH_PRIVATE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error title=Missing secret::${name} is not configured."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Wait for SSH port
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+        run: |
+          set -euo pipefail
+          port="${VPS_PORT:-22}"
+          echo "Waiting for SSH at port ${port} (up to 5 attempts)..."
+          for i in 1 2 3 4 5; do
+            if timeout 15 bash -c "exec 3<>/dev/tcp/${VPS_HOST}/${port}" 2>/dev/null; then
+              echo "SSH port is open (attempt ${i})"
+              exit 0
+            fi
+            echo "Attempt ${i}/5: not reachable, sleeping 20s..."
+            sleep 20
+          done
+          echo "::error title=SSH unreachable::GitHub Actions cannot reach the VPS SSH port. Check the firewall, fail2ban, and that the VPS is up."
+          exit 1
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
+        env:
+          DEPLOY_BRANCH: ${{ needs.resolve.outputs.branch }}
+          DEPLOY_REF: ${{ needs.resolve.outputs.sha }}
+          APP_DIR: ${{ vars.APP_DIR || '/var/www/fasalbabajimina' }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          timeout: 60s
+          command_timeout: 40m
+          envs: DEPLOY_BRANCH,DEPLOY_REF,APP_DIR
+          script: |
+            set -euo pipefail
+            export APP_DIR="${APP_DIR:-/var/www/fasalbabajimina}"
+            export DEPLOY_BRANCH DEPLOY_REF
+            export DB_BACKUP_REQUIRED=1 DB_BACKUP_SKIP=0
+            cd "$APP_DIR"
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "ERROR: $APP_DIR is not a git repository."
+              exit 1
+            fi
+
+            # Do not git-reset the live tree. deploy.sh builds a sibling
+            # release and switches only after a health check.
+            echo "==> Fetch origin/${DEPLOY_BRANCH} (live site stays up)"
+            git fetch origin "$DEPLOY_BRANCH"
+
+            if ! git cat-file -e "${DEPLOY_REF}^{commit}" 2>/dev/null; then
+              echo "ERROR: commit ${DEPLOY_REF} is not reachable after fetching origin/${DEPLOY_BRANCH}."
+              echo "It was force-pushed away, or the branch moved. Nothing was changed."
+              exit 1
+            fi
+
+            # Take deploy.sh from the pinned commit, not the branch tip and not
+            # the on-disk copy, so the script always matches what it deploys.
+            DEPLOY_TMP="$(mktemp /tmp/mina-deploy.XXXXXX.sh)"
+            if ! git show "${DEPLOY_REF}:deploy.sh" > "$DEPLOY_TMP"; then
+              echo "deploy.sh is missing from commit ${DEPLOY_REF}."
+              echo "Merge deploy.sh into ${DEPLOY_BRANCH}, then re-run this workflow."
+              rm -f "$DEPLOY_TMP"
+              exit 1
+            fi
+
+            echo "==> Running deploy.sh from ${DEPLOY_REF}"
+            bash "$DEPLOY_TMP"
+            rm -f "$DEPLOY_TMP"
+
+      - name: Report failure
+        if: failure()
+        env:
+          DEPLOY_BRANCH: ${{ needs.resolve.outputs.branch }}
+          DEPLOY_REF: ${{ needs.resolve.outputs.sha }}
+          APP_DIR: ${{ vars.APP_DIR || '/var/www/fasalbabajimina' }}
+        run: |
+          echo "::error title=Production deploy failed::${DEPLOY_BRANCH} @ ${DEPLOY_REF} failed. Inspect the deployment log and live health. Code rollback does not undo migrations; database recovery may require the pre-deploy snapshot. Manual code rollback: ${APP_DIR}/current/rollback.sh"

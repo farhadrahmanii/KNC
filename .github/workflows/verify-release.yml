@@ -1,0 +1,129 @@
+name: Verify release
+
+# Must pass before production deploy. Pull requests run this only.
+# Pushes to main run it via deploy-production.yml, which resolves the branch
+# tip to a SHA first and passes that exact SHA here, so the commit verified
+# is the commit deployed.
+
+on:
+  pull_request:
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to verify (commit SHA or branch). Empty = github.sha.
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-release-${{ github.workflow }}-${{ github.event.pull_request.number || inputs.ref || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Release gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Composer package:discover boots Artisan before .env exists. Without these,
+    # that boot dials MySQL and the job dies before the gate runs.
+    env:
+      APP_ENV: testing
+      APP_DEBUG: false
+      APP_URL: http://localhost
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ${{ github.workspace }}/database/ci.sqlite
+      CACHE_DRIVER: array
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+      BROADCAST_CONNECTION: log
+      BROADCAST_DRIVER: log
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+
+      - name: Validate GitHub workflows
+        run: |
+          set -euo pipefail
+          lint_dir="$(mktemp -d)"
+          curl --fail --silent --show-error --location --retry 3 \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            -o "$lint_dir/actionlint.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $lint_dir/actionlint.tar.gz" | sha256sum --check
+          tar -xzf "$lint_dir/actionlint.tar.gz" -C "$lint_dir" actionlint
+          "$lint_dir/actionlint" -shellcheck= -pyflakes=
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, intl, bcmath, gd, xml, ctype, json, mysql, zip, tokenizer, fileinfo, curl, sqlite, pdo_sqlite
+          coverage: none
+          ini-values: memory_limit=512M
+
+      - name: Locate Composer cache
+        id: composer-cache
+        run: echo "dir=$(composer config --global cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer packages
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-php8.2-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-php8.2-
+
+      # --no-dev: this is the dependency set production installs.
+      - name: Install Composer dependencies (production set)
+        run: composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # Vite is a devDependency. NODE_ENV=production would skip it and the
+      # Filament admin theme would 500.
+      - name: Build front end
+        run: npm ci && npm run build
+
+      - name: Application env for CI
+        run: |
+          cp .env.example .env
+          php artisan key:generate --force --no-interaction
+
+      # /admin/login renders PWA settings. A file (not :memory:) keeps the
+      # schema for the release gate, which runs in this same job.
+      - name: Migrate throwaway sqlite
+        run: |
+          mkdir -p database
+          touch database/ci.sqlite
+          php artisan migrate --force --no-interaction
+
+      - name: PHP syntax (app, routes, config, database)
+        run: |
+          set -euo pipefail
+          git ls-files '*.php' | grep -E '^(app|bootstrap|config|database|routes)/' | while read -r f; do
+            php -l "$f"
+          done
+
+      - name: Release gate (boot, named routes, Blade compile, public pages)
+        run: php artisan mina:release-gate --no-interaction
+
+      - name: Shell syntax (deploy and rollback scripts)
+        run: |
+          set -euo pipefail
+          for f in deploy.sh rollback.sh; do
+            if [ -f "$f" ]; then
+              bash -n "$f"
+              echo "OK: $f"
+            fi
+          done

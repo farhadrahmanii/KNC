@@ -3,15 +3,17 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Filament\Models\Contracts\HasAvatar;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Filament\Models\Contracts\HasAvatar;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\HasApiTokens;
+
 class User extends Authenticatable implements HasAvatar
 {
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -23,7 +25,7 @@ class User extends Authenticatable implements HasAvatar
         'email',
         'password',
         'avatar_url',
-        'custom_fields'
+        'custom_fields',
     ];
 
     /**
@@ -34,7 +36,6 @@ class User extends Authenticatable implements HasAvatar
     protected $hidden = [
         'password',
         'remember_token',
-        'custom_fields',
     ];
 
     /**
@@ -47,8 +48,18 @@ class User extends Authenticatable implements HasAvatar
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'custom_fields' => 'array',
         ];
+    }
+
+    /**
+     * The edit profile plugin saves custom_fields as an array but reads it back
+     * with json_decode(), so it must stay a raw JSON string when read.
+     */
+    protected function customFields(): Attribute
+    {
+        return Attribute::make(
+            set: fn (mixed $value): mixed => is_array($value) ? json_encode($value) : $value,
+        );
     }
 
     public function getFilamentAvatarUrl(): ?string
