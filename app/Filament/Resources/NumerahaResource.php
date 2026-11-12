@@ -79,6 +79,7 @@ class NumerahaResource extends Resource
                             ->unique(ignoreRecord: true)
                             ->default('GM-'.Str::substr((string) Str::uuid(), 0, 8)) // Auto-generate a unique save number
                             ->disabled()
+                            ->dehydrated()
                             ->prefixIcon('heroicon-o-sparkles')
                             ->required(),
                         Forms\Components\TextInput::make('Land_Area')
