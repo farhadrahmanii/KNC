@@ -37,6 +37,10 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->brandLogo('/images/logo/omarzay-logo.png')
+            ->darkModeBrandLogo('/images/logo/omarzay-logo-white.png')
+            ->brandLogoHeight('2.25rem')
+            ->favicon('/images/logo/omarzay-icon.png')
             ->colors([
                 'secondary' => Color::Blue,
             ])

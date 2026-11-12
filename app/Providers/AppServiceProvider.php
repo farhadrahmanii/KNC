@@ -21,6 +21,10 @@ class AppServiceProvider extends ServiceProvider
             fn (KnowledgeBasePanel $panel) => $panel
                 ->viteTheme('resources/css/filament/admin/theme.css') // your filament vite theme path here
                 ->font('Bahij Helvetica Neue', url: '/css/bahij-font.css', provider: LocalFontProvider::class)
+                ->brandLogo('/images/logo/omarzay-logo.png')
+                ->darkModeBrandLogo('/images/logo/omarzay-logo-white.png')
+                ->brandLogoHeight('2.25rem')
+                ->favicon('/images/logo/omarzay-icon.png')
         );
     }
 
