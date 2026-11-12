@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use BezhanSalleh\FilamentLanguageSwitch\LanguageSwitch;
+use Filament\FontProviders\LocalFontProvider;
 use Guava\FilamentKnowledgeBase\Filament\Panels\KnowledgeBasePanel;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
@@ -19,6 +20,7 @@ class AppServiceProvider extends ServiceProvider
         KnowledgeBasePanel::configureUsing(
             fn (KnowledgeBasePanel $panel) => $panel
                 ->viteTheme('resources/css/filament/admin/theme.css') // your filament vite theme path here
+                ->font('Bahij Helvetica Neue', url: '/css/bahij-font.css', provider: LocalFontProvider::class)
         );
     }
 

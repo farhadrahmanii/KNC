@@ -73,7 +73,7 @@ Use what is already in `composer.json` and `package.json`:
 | **Backend** | Laravel **11**, PHP **8.2+** |
 | **Admin** | **Filament 3** (forms, tables, widgets, notifications), Livewire 3 |
 | **Auth** | Filament panel login, Sanctum for `routes/api.php` |
-| **Front end** | Vite, Tailwind 3 with `tailwindcss-rtl`, Alpine, the Vazirmatn font |
+| **Front end** | Vite, Tailwind 3 with `tailwindcss-rtl`, Alpine, the Bahij Helvetica Neue font (`public/fonts`, `public/css/bahij-font.css`, set with `LocalFontProvider` on the admin and knowledge base panels) |
 | **Data** | MySQL, Eloquent |
 | **Documents** | TCPDF (RTL PDFs), DomPDF, PhpWord `TemplateProcessor`, Laravel Invoices |
 | **Import / export** | `eightynine/filament-excel-import`, `pxlrbt/filament-excel`, Maatwebsite Excel |
@@ -213,6 +213,7 @@ In-app help lives in `docs/{ps,en,de}/` and shows on the `/kb` knowledge base pa
 - Build sidebar links in `AdminPanelProvider` with `fn () => url(...)`, never `env('APP_URL')`. `env()` returns null once config is cached, and a stale `APP_URL` sends the link to a dead host.
 - The display name is **کابل جدید** (Persian, Kabul New City). The printed sale documents keep «فصل باباجی مینه» on purpose. The panel brand and page titles read `APP_NAME`. The PWA install name and the `application-name` meta tag on every admin page read the stored settings `pwa.pwa_app_name` and `pwa.pwa_short_name`. Change both when you rename. `APP_NAME` also names the session cookie and the backup folder, so a rename logs everyone out once and starts a new backup folder.
 - `APP_URL` must match the Herd site (`http://fasalbabajimina.test`, named after the folder). Uploaded file URLs come from it (`config/filesystems.php`).
+- Production nginx does not pass HTTPS to PHP. `AppServiceProvider` forces `https` URLs when `APP_URL` starts with `https://`; without it every asset is `http://` and the admin renders unstyled.
 - `public/storage` must be a link to `storage/app/public`. If the project is copied or moved, run `php artisan storage:link` again.
 - `DatabaseSeeder` imports models in lowercase (`customers`, `numeraha`). That works on Windows but fails on a case-sensitive Linux file system.
 - The customers migration is dated `1024_…` so it runs before `numerahas`. Do not "fix" the date.

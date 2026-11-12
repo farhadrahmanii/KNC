@@ -5,7 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Pages\Backups;
 use App\Models\Numeraha;
 use Awcodes\FilamentBadgeableColumn\Components\Badge;
-use Filament\FontProviders\SpatieGoogleFontProvider;
+use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -139,6 +139,6 @@ class AdminPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->resources([
                 config('filament-logger.activity_resource'),
-            ])->font('Inter', provider: SpatieGoogleFontProvider::class);
+            ])->font('Bahij Helvetica Neue', url: '/css/bahij-font.css', provider: LocalFontProvider::class);
     }
 }
