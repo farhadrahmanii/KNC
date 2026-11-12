@@ -4,9 +4,9 @@
 # Deliberately self-contained. It does not source deploy.sh, because the one
 # moment you need this is the moment that tree may be the broken one.
 #
-#   /var/www/fasalbabajimina/current/rollback.sh
-#   /var/www/fasalbabajimina/current/rollback.sh --list
-#   ROLLBACK_TO=releases/20260101120000_abc1234 /var/www/fasalbabajimina/current/rollback.sh
+#   /var/www/KNC/current/rollback.sh
+#   /var/www/KNC/current/rollback.sh --list
+#   ROLLBACK_TO=releases/20260101120000_abc1234 /var/www/KNC/current/rollback.sh
 #
 # deploy.sh keeps KEEP_RELEASES (default 5) releases and a `previous` symlink.
 # This does not touch the database. If the bad deploy ran a migration, restore
@@ -14,7 +14,7 @@
 #   gunzip -c shared/db-backups/<release-id>.sql.gz | mysql -u <user> -p <db>
 set -eEuo pipefail
 
-APP_DIR="${APP_DIR:-/var/www/fasalbabajimina}"
+APP_DIR="${APP_DIR:-/var/www/KNC}"
 PHP_BIN="${PHP_BIN:-php}"
 WEB_USER="${WEB_USER:-www-data}"
 WEB_GROUP="${WEB_GROUP:-www-data}"

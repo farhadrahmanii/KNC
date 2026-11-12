@@ -10,13 +10,13 @@
 # 2xx/3xx or public/ is pointed back at the previous release.
 #
 # One-time server layout (nginx document root is $APP_DIR/public):
-#   /var/www/fasalbabajimina/.git
-#   /var/www/fasalbabajimina/.env          production env, never in git
-#   /var/www/fasalbabajimina/storage       uploads survive every release
+#   /var/www/KNC/.git
+#   /var/www/KNC/.env          production env, never in git
+#   /var/www/KNC/storage       uploads survive every release
 # The first successful run turns public/ from a directory into a symlink.
 set -eEuo pipefail
 
-APP_DIR="${APP_DIR:-/var/www/fasalbabajimina}"
+APP_DIR="${APP_DIR:-/var/www/KNC}"
 BRANCH="${DEPLOY_BRANCH:-main}"
 # Exact commit to deploy. The workflow resolves the branch tip to a SHA once,
 # has the release gate verify *that* SHA, and pins it here. Without it this
