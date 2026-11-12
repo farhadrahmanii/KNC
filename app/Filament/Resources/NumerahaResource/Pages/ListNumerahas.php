@@ -3,16 +3,15 @@
 namespace App\Filament\Resources\NumerahaResource\Pages;
 
 use App\Filament\Resources\NumerahaResource;
+use App\Imports\MyNumerahaImport;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
-use App\Imports\MyNumerahaImport;
-use Filament\Forms\Components\Placeholder;
 
 class ListNumerahas extends ListRecords
 {
     protected static string $resource = NumerahaResource::class;
-    protected static ?string $title = 'لیست د ټولو نمرو (ځمکو)';
 
+    protected static ?string $title = 'لیست د ټولو نمرو (ځمکو)';
 
     protected function getHeaderActions(): array
     {
@@ -36,12 +35,12 @@ class ListNumerahas extends ListRecords
             //     ]),
             \EightyNine\ExcelImport\ExcelImportAction::make()
                 // ->color("primary")
-                ->icon("heroicon-o-arrow-up-tray")
+                ->icon('heroicon-o-arrow-up-tray')
                 // ->successMessage("Data imported successfully!")
                 ->label('اپلوډ کړی')
                 ->use(MyNumerahaImport::class),
-            // Actions\CreateAction::make()
-            //     ->label('نوی نمره ثبت کړی'), // Custom label for the "Add" button
+            Actions\CreateAction::make()
+                ->label('نوی نمره ثبت کړی'),
         ];
     }
 }
