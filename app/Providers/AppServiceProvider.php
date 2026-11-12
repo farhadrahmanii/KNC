@@ -2,24 +2,22 @@
 
 namespace App\Providers;
 
-use Filament\Support\Assets\Css;
-use Filament\Support\Facades\FilamentAsset;
-use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\ServiceProvider;
-use Guava\FilamentKnowledgeBase\Filament\Panels\KnowledgeBasePanel;
 use BezhanSalleh\FilamentLanguageSwitch\LanguageSwitch;
+use Guava\FilamentKnowledgeBase\Filament\Panels\KnowledgeBasePanel;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\ServiceProvider;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
      * Register any application services.
      */
-
-
     public function register(): void
     {
 
         KnowledgeBasePanel::configureUsing(
-            fn(KnowledgeBasePanel $panel) => $panel
+            fn (KnowledgeBasePanel $panel) => $panel
                 ->viteTheme('resources/css/filament/admin/theme.css') // your filament vite theme path here
         );
     }
@@ -35,5 +33,10 @@ class AppServiceProvider extends ServiceProvider
         });
         Schema::defaultStringLength(191);
 
+        // nginx does not tell PHP the request came over HTTPS, so asset links
+        // would be http:// and the browser blocks them as mixed content.
+        if (str_starts_with((string) config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
     }
 }
