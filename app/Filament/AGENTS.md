@@ -12,7 +12,7 @@ This is the whole back office. Staff manage plots, customers, sales, and money h
 | `app/Filament/Resources/NumerahaResource.php` | Plot list and the plot form |
 | `app/Filament/Resources/CustomerNumerahaResource.php` | Sale record: customer, plot, payments, and files |
 | `app/Filament/Resources/NumerahaIncomeResource.php` | The same sale model, shown under money |
-| `app/Filament/Resources/aMarketsResource.php` | Markets screen. The class name is `MarketsResource` |
+| `app/Filament/Resources/MarketsResource.php` | Markets screen |
 
 ## Conventions
 
@@ -25,7 +25,7 @@ This is the whole back office. Staff manage plots, customers, sales, and money h
 
 ## Gotchas
 
-- The markets file is named `aMarketsResource.php` while the class is `MarketsResource`. Keep that class name if you rename the file, or the page folder and discovery fall out of step.
+- Name each file exactly like its class. A mismatch (the old `aMarketsResource.php`) makes `config:cache` fail on deploy with "Cannot redeclare class".
 - The sold and unsold sidebar links are filter URLs on the plot list. The badges count plots that do, or do not, have customers.
 - Document downloads are not Filament pages. `routes/web.php` sends them to `SharwaliTarifa`, and a guest is sent to `/admin/login`.
 

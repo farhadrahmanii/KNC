@@ -119,6 +119,10 @@ jobs:
       - name: Release gate (boot, named routes, Blade compile, public pages)
         run: php artisan mina:release-gate --no-interaction
 
+      # deploy.sh runs config:cache, which boots the app a second time in one process.
+      - name: Config cache (as deploy.sh runs it)
+        run: php artisan config:cache --no-interaction && php artisan config:clear --no-interaction
+
       - name: Shell syntax (deploy and rollback scripts)
         run: |
           set -euo pipefail

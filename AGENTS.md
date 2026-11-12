@@ -54,7 +54,7 @@ Small edit        → AGENTS.md → edit → pint → manual check in /admin
 | **Sales** (customer + plot + payments + files) | `CustomerNumeraha` | `customer_numerahas` | `CustomerNumerahaResource` |
 | **Income** (same sale model, money view) | `CustomerNumeraha` | `customer_numerahas` | `NumerahaIncomeResource` |
 | **Finance** (expenses and ledger rows) | `Finance` | `finances` | `FinanceResource` |
-| **Markets** | `Markets` | `markets` | `aMarketsResource.php` (class `MarketsResource`) |
+| **Markets** | `Markets` | `markets` | `MarketsResource` |
 | **Employees** | `Employees` | `employees` | `EmployeesResource` |
 | **Users** | `User` | `users` | `UserResource` |
 | **Transactions** | `Transactions` | `transactions` | no resource |
@@ -208,7 +208,7 @@ In-app help lives in `docs/{ps,en,de}/` and shows on the `/kb` knowledge base pa
 - **A push to `main` deploys production.** `.github/workflows/deploy-production.yml` runs the release gate on that exact commit, then SSHes to the VPS and runs `deploy.sh`. The script snapshots MySQL and then runs `php artisan migrate --force` on the server. GitHub Actions does not open the production database. A migration must still be safe on live data before it is merged. The server clone is `/var/www/KNC` unless the `APP_DIR` repository variable overrides it. The `production` environment needs secrets `VPS_HOST`, `VPS_USER`, and `VPS_SSH_PRIVATE_KEY` (`VPS_PORT` is optional). Pull requests run `.github/workflows/verify-release.yml` only.
 - **Tests use the `.env` database.** The SQLite lines in `phpunit.xml` are commented out. Do not add `RefreshDatabase` to a test unless you point it at a throwaway database first.
 - `NumerahObserver` is not registered (no `#[ObservedBy]`, no `observe()` call). Its notifications do not fire until it is.
-- The markets file is `aMarketsResource.php` but the class is `MarketsResource`. Keep the class name if you rename the file. Because the names differ, Composer skips it and Filament includes the file on every app boot, so a second feature test in one PHPUnit run dies with "Cannot redeclare class MarketsResource".
+- A file name must match its class name exactly, including case. When they differ, Composer skips the file and Filament includes it on every app boot, so `config:cache` (run by `deploy.sh`) and a second feature test in one PHPUnit run die with "Cannot redeclare class".
 - Column requirements must match the forms. A `NOT NULL` column the form leaves optional fails on insert with "doesn't have a default value".
 - Build sidebar links in `AdminPanelProvider` with `fn () => url(...)`, never `env('APP_URL')`. `env()` returns null once config is cached, and a stale `APP_URL` sends the link to a dead host.
 - The display name is **کابل جدید** (Persian, Kabul New City). The printed sale documents keep «فصل باباجی مینه» on purpose. The panel brand and page titles read `APP_NAME`. The PWA install name and the `application-name` meta tag on every admin page read the stored settings `pwa.pwa_app_name` and `pwa.pwa_short_name`. Change both when you rename. `APP_NAME` also names the session cookie and the backup folder, so a rename logs everyone out once and starts a new backup folder.
