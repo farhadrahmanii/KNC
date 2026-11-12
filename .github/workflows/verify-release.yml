@@ -29,8 +29,9 @@ jobs:
     timeout-minutes: 30
     # Composer package:discover boots Artisan before .env exists. Without these,
     # that boot dials MySQL and the job dies before the gate runs.
+    # Not "testing": Livewire then calls Mockery, which --no-dev leaves out.
     env:
-      APP_ENV: testing
+      APP_ENV: production
       APP_DEBUG: false
       APP_URL: http://localhost
       DB_CONNECTION: sqlite
