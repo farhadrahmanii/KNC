@@ -3,19 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\CustomerNumeraha;
-use App\Models\Numeraha;
-use LaravelDaily\Invoices\Invoice;
-use LaravelDaily\Invoices\Classes\Buyer;
-use LaravelDaily\Invoices\Classes\InvoiceItem;
-use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Elibyy\TCPDF\Facades\TCPDF;
-use FontLib\Table\Type\name;
-// use PDF;
-use PhpOffice\PhpWord\PhpWord;
-use PhpOffice\PhpWord\IOFactory;
 use Carbon\Carbon;
+// use PDF;
+use Elibyy\TCPDF\Facades\TCPDF;
 use PhpOffice\PhpWord\TemplateProcessor;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SharwaliTarifa extends Controller
 {
@@ -58,7 +51,7 @@ class SharwaliTarifa extends Controller
         $sharwali_tarifa_price = $filament->numeraha->sharwali_tarifa_price ?? '0 AFG';
         $date = Carbon::now();
 
-        $pdf = new TCPDF();
+        $pdf = new TCPDF;
 
         // Set document information
         $pdf::SetAuthor('Your Name');
@@ -111,6 +104,7 @@ class SharwaliTarifa extends Controller
         // Output PDF as download
         return $pdf::Output('تعرفه.pdf', 'D');
     }
+
     public function downloadsoldDocs($id)
     {
         $filament = $this->saleForDownload($id);
@@ -150,7 +144,7 @@ class SharwaliTarifa extends Controller
         $sharwali_tarifa_price = $filament->numeraha->sharwali_tarifa_price ?? '0 AFG';
         $date = Carbon::now();
 
-        $pdf = new TCPDF();
+        $pdf = new TCPDF;
 
         // Set document information
         $pdf::SetAuthor('Your Name');
@@ -207,7 +201,8 @@ class SharwaliTarifa extends Controller
         return $pdf::Output('د نمری سند.pdf', 'D');
 
     }
-    public function downloadsoldWord($id)
+
+    public function downloadsoldWord($id): BinaryFileResponse
     {
         // Load the data from the database
         $filament = $this->saleForDownload($id);
@@ -223,7 +218,6 @@ class SharwaliTarifa extends Controller
         $tazkira = $filament->customer->tazkira ?? 'Unknown';
         $mobile_number = $filament->customer->mobile_number ?? 'Unknown';
         $job = $filament->customer->job ?? 'Unknown';
-        $Customer_image = $filament->customer->Customer_image ?? 'Unknown';
         $responsable_name = $filament->customer->responsable_name ?? 'Unknown';
         $responsable_father_name = $filament->customer->responsable_father_name ?? 'Unknown';
         $responsable_grand_father_name = $filament->customer->responsable_grand_father_name ?? 'Unknown';
@@ -231,7 +225,6 @@ class SharwaliTarifa extends Controller
         $responsable_village = $filament->customer->responsable_village ?? 'Unknown';
         $responsable_tazkira = $filament->customer->responsable_tazkira ?? 'Unknown';
         $responsable_mobile_number = $filament->customer->responsable_mobile_number ?? 'Unknown';
-        $responsable_image = $filament->customer->responsable_image ?? 'Unknown';
         $responsable_job = $filament->customer->responsable_job ?? 'Unknown';
         $numera_id = $filament->numeraha->numera_id ?? '0 AFG';
         $numera_type = $filament->numeraha->numera_type ?? 'Unknown';
@@ -258,19 +251,8 @@ class SharwaliTarifa extends Controller
         $templateProcessor->setValue('tazkira', $tazkira);
         $templateProcessor->setValue('mobile_number', $mobile_number);
         $templateProcessor->setValue('job', $job);
-        $templateProcessor->setImageValue('Customer_image', [
-            'path' => storage_path('app/public/' . $Customer_image),
-            'width' => 100,
-            'height' => 100,
-            'ratio' => true,
-        ]);
-
-        $templateProcessor->setImageValue('responsable_image', [
-            'path' => storage_path('app/public/' . $responsable_image),
-            'width' => 100,
-            'height' => 100,
-            'ratio' => true,
-        ]);
+        $this->setTemplateImage($templateProcessor, 'Customer_image', $filament->customer->Customer_image);
+        $this->setTemplateImage($templateProcessor, 'responsable_image', $filament->customer->responsable_image);
 
         $templateProcessor->setValue('responsable_name', $responsable_name);
         $templateProcessor->setValue('responsable_father_name', $responsable_father_name);
@@ -291,13 +273,77 @@ class SharwaliTarifa extends Controller
         $templateProcessor->setValue('sharwali_tarifa_price', $sharwali_tarifa_price);
         $templateProcessor->setValue('date', $date);
 
-        // Save the resulting file and return as a download
-        $fileName = 'numerah_sold_document.docx';
-        $tempFile = storage_path("app/public/$fileName");
+        $tempFile = $this->wordDocumentPath();
         $templateProcessor->saveAs($tempFile);
 
-        // Return the file as a download response
-        return response()->download($tempFile)->deleteFileAfterSend(true);
+        return response()->download($tempFile, 'numerah_sold_document.docx')->deleteFileAfterSend(true);
+    }
+
+    protected function wordDocumentPath(): string
+    {
+        $directory = storage_path('app').DIRECTORY_SEPARATOR.'tmp';
+
+        if (! is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        return $directory.DIRECTORY_SEPARATOR.'numerah_sold_'.bin2hex(random_bytes(8)).'.docx';
+    }
+
+    protected function publicStorageFile(?string $storedPath): ?string
+    {
+        if (! is_string($storedPath) || $storedPath === '' || $storedPath === 'Unknown') {
+            return null;
+        }
+
+        if (str_contains($storedPath, '..') || str_contains($storedPath, "\0")) {
+            return null;
+        }
+
+        $root = realpath(storage_path('app/public'));
+
+        if ($root === false) {
+            return null;
+        }
+
+        $relative = ltrim(str_replace('\\', '/', $storedPath), '/');
+
+        if ($relative === '' || preg_match('/^[A-Za-z]:/', $relative) === 1) {
+            return null;
+        }
+
+        $candidate = $root.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $relative);
+        $real = realpath($candidate);
+
+        if ($real === false || ! is_file($real)) {
+            return null;
+        }
+
+        $prefix = rtrim($root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR;
+
+        if (! str_starts_with($real, $prefix)) {
+            return null;
+        }
+
+        return $real;
+    }
+
+    private function setTemplateImage(TemplateProcessor $templateProcessor, string $placeholder, ?string $storedPath): void
+    {
+        $path = $this->publicStorageFile($storedPath);
+
+        if ($path === null) {
+            $templateProcessor->setValue($placeholder, '');
+
+            return;
+        }
+
+        $templateProcessor->setImageValue($placeholder, [
+            'path' => $path,
+            'width' => 100,
+            'height' => 100,
+            'ratio' => true,
+        ]);
     }
 
     private function saleForDownload($id): CustomerNumeraha

@@ -216,6 +216,7 @@ In-app help lives in `docs/{ps,en,de}/` and shows on the `/kb` knowledge base pa
 - Production nginx does not pass HTTPS to PHP. `AppServiceProvider` forces `https` URLs when `APP_URL` starts with `https://`; without it every asset is `http://` and the admin renders unstyled.
 - `public/storage` must be a link to `storage/app/public`. If the project is copied or moved, run `php artisan storage:link` again.
 - `DatabaseSeeder` imports models in lowercase (`customers`, `numeraha`). That works on Windows but fails on a case-sensitive Linux file system.
+- The Word sale document is saved under `storage/app/tmp` with a unique name, then deleted after the browser receives it. The download name stays `numerah_sold_document.docx`. Customer and responsable photos are added only when the stored path is a real file inside `storage/app/public`.
 - The customers migration is dated `1024_…` so it runs before `numerahas`. Do not "fix" the date.
 - Knowledge base articles are cached forever under the `filament_kb_` prefix. Clear the cache after you edit one.
 
